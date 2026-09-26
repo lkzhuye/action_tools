@@ -1,0 +1,55 @@
+name: Build LEDE rootfs for PVE LXC
+on:
+  workflow_dispatch: # 手动触发，推荐
+  # push: # 提交代码自动触发，不需要可以注释
+  #   branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350 # 最大5h50m，小于6h上限
+    steps:
+      - name: 安装依赖
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc libxml-parser-perl unzip bzip2 python3 python3-pip python3-setuptools python3-dev wget curl file
+      - name: 拉取 Lede 源码
+        run: |
+          git clone https://github.com/coolsnowwolf/lede.git
+          cd lede
+          # 替换feeds国内源，加速
+          sed -i 's/https:\/\/git.openwrt.org\/feed\//https:\/\/mirrors.tuna.tsinghua.edu.cn\/openwrt\/feeds\//g' feeds.conf.default
+          sed -i 's/github.com\/coolsnowwolf\/packages/mirrors.ghproxy.com\/https:\/\/github.com\/coolsnowwolf\/packages/g' feeds.conf.default
+      - name: 进入源码目录
+        working-directory: ./lede
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+      # ========== 调试用：打开tmate，ssh进runner执行make menuconfig，配置完把.config保存到仓库 ==========
+      # 正式编译时注释下面这段
+      # - name: tmate调试终端
+      #   uses: mxschmitt/action-tmate@v3
+      # =========================================================================================
+      - name: 配置编译选项
+        working-directory: ./lede
+        run: |
+          # 如果你仓库里放了预先生成的 .config，用下面这行，把你的config文件放到仓库根目录
+          # cp ../.config .config
+          # 没有预配置就执行menuconfig（需要打开上面tmate，手动操作）
+          make menuconfig
+      - name: 编译源码（适合2核7G runner，-j2防止OOM）
+        working-directory: ./lede
+        run: |
+          make -j2 V=s
+      - name: 提取LXC用rootfs.tar.gz
+        working-directory: ./lede
+        run: |
+          # 编译完成后rootfs在 bin/targets/x86_64/generic/
+          cd bin/targets/x86_64/generic/
+          # 打包纯净rootfs，就是LXC需要的根文件系统
+          tar -zcvf lede-lxc-rootfs.tar.gz rootfs/*
+      - name: 上传产物到Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lede-lxc-rootfs
+          path: ./lede/bin/targets/x86_64/generic/lede-lxc-rootfs.tar.gz
