@@ -11,15 +11,16 @@ jobs:
     steps:
       - name: 安装依赖
         run: |
-          sudo apt update
-          sudo apt install -y build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc libxml-parser-perl unzip bzip2 python3 python3-pip python3-setuptools python3-dev wget curl file
+          sudo apt update -y
+          sudo apt install -y build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc libxml-parser-perl unzip bzip2 python3 python3-pip python3-setuptools python3-dev wget curl file ccache
+
       - name: 拉取 Lede 源码
         run: |
           git clone https://github.com/coolsnowwolf/lede.git
           cd lede
           # 替换feeds国内源，加速
-          sed -i 's/https:\/\/git.openwrt.org\/feed\//https:\/\/mirrors.tuna.tsinghua.edu.cn\/openwrt\/feeds\//g' feeds.conf.default
-          sed -i 's/github.com\/coolsnowwolf\/packages/mirrors.ghproxy.com\/https:\/\/github.com\/coolsnowwolf\/packages/g' feeds.conf.default
+          # sed -i 's/https:\/\/git.openwrt.org\/feed\//https:\/\/mirrors.tuna.tsinghua.edu.cn\/openwrt\/feeds\//g' feeds.conf.default
+          # sed -i 's/github.com\/coolsnowwolf\/packages/mirrors.ghproxy.com\/https:\/\/github.com\/coolsnowwolf\/packages/g' feeds.conf.default
       - name: 进入源码目录
         working-directory: ./lede
         run: |
@@ -27,8 +28,8 @@ jobs:
           ./scripts/feeds install -a
       # ========== 调试用：打开tmate，ssh进runner执行make menuconfig，配置完把.config保存到仓库 ==========
       # 正式编译时注释下面这段
-      # - name: tmate调试终端
-      #   uses: mxschmitt/action-tmate@v3
+      - name: tmate调试终端
+        uses: mxschmitt/action-tmate@v3
       # =========================================================================================
       - name: 配置编译选项
         working-directory: ./lede
